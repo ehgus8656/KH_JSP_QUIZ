@@ -19,95 +19,75 @@ import action.CommandAction;
 
 
 
+
 public class ControllerAction extends HttpServlet {
 
 	private static final long serialVersionUID = 1L;
 
-	// 명령어와 명령어 처리 클래스를 쌍으로 저장해두는 MAP
-	private Map<String, Object> commandMap = new HashMap<String, Object>();
-	// 명령어와 처리클래스가 매핑되어 있는 properties파일(CommandPro.properties)을 읽어 Map 객체인
-	// commandMap에 저장한다.
-
-	// web.xml에서 propertyConfig에 해당하는 init-param의 값을 읽어온다.
+private Map<String, Object> cmdMap = new HashMap<String, Object>();
+	
 	@Override
 	public void init(ServletConfig config) throws ServletException {
+		super.init();
 		String props = config.getInitParameter("propertyConfig");
-
-		// 명령어와 커리클래스의 매핑 정보를 저장할 Properties객체 생성
 		Properties pr = new Properties();
 		FileInputStream f = null;
-		String path = config.getServletContext().getRealPath("/WEB-INF");
-		try {
+		String path = getServletContext().getRealPath("/WEB-INF");
+		try{
 			f = new FileInputStream(new File(path, props));
-
-			// Command.properties파일의 정보를 Properties객체에 저장
 			pr.load(f);
-		} catch (IOException e) {
-			throw new ServletException(e);
-		} finally {
-			if (f != null) {
-				try {
-					f.close();
-				} catch (IOException e) {
-
+		}catch(IOException e){
+			e.printStackTrace();
+		}finally{
+			if(f != null) {
+				try{
+					f.close(); 
+				}catch(IOException e){
 					e.printStackTrace();
 				}
 			}
 		}
-		
-		//Iterator 객체 사용
-		Iterator<Object> keyIter = pr.keySet().iterator();
-		
-		while(keyIter.hasNext()) {
-			String command = (String) keyIter.next();
-			String className = pr.getProperty(command);
-			try {
-				//가져온 문자열을 클래스로 만듬
-				Class<?> commandClass = Class.forName(className);
-				
-				//만들어진 해당 클래스의 객체 생성
-				Object commandInstance = commandClass.newInstance();
-				
-				//생성된 객체를 commandMap에 저장
-				commandMap.put(command, commandInstance);
-			}catch(ClassNotFoundException e) {
-				throw new ServletException(e);
-			}catch(InstantiationException e) {
-				throw new ServletException(e);
-			}
-			catch(IllegalAccessException e) {
-				throw new ServletException(e);
+		Iterator<Object> cmdkey = pr.keySet().iterator();
+		while(cmdkey.hasNext()){
+			String cmd = (String)cmdkey.next();
+			String className = pr.getProperty(cmd);
+			try{
+				Class<?> cmdClass = Class.forName(className);
+				Object cmdInstance = cmdClass.newInstance();
+				System.out.println(cmd+"::"+cmdInstance);
+				cmdMap.put(cmd, cmdInstance);
+			}catch(Exception e){
+				e.printStackTrace();
 			}
 		}
 	}
-	
-	//Get방식 서비스 메서드
-	@Override
-	protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-		requestPro(req, resp);
+	public void doGet(HttpServletRequest request, HttpServletResponse response)
+	throws ServletException, IOException{
+		System.out.println("GET요청:" + request.getRequestURI());
+		requestPro(request, response);
 	}
-	
-	//Post방식 서비스 메서드
-	@Override
-	protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-		requestPro(req, resp);
+	public void doPost(HttpServletRequest request, HttpServletResponse response)
+			throws ServletException, IOException{
+		System.out.println("POST요청:" + request.getRequestURI());
+		requestPro(request, response);
 	}
-	
-	//사용자의 요청에 따라 분석하여 해당 작업을 처리
-	private void requestPro(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+	private void requestPro(HttpServletRequest request, HttpServletResponse response)
+			throws ServletException, IOException{
 		String view = null;
-		CommandAction com = null;
-		try {
-			String command = req.getRequestURI();
-			if(command.indexOf(req.getContextPath()) == 0) {
-				command = command.substring(req.getContextPath().length());
+		CommandAction ca = null;
+		try{
+			String cmd = request.getRequestURI();
+			if(cmd.indexOf(request.getContextPath()) == 0){
+				cmd = cmd.substring(request.getContextPath().length());
 			}
-			com = (CommandAction) commandMap.get(command);
-			view = com.requestPro(req, resp);
-		} catch(Throwable e) {
-			throw new ServletException(e);
+			ca = (CommandAction)cmdMap.get(cmd);
+			view = ca.requestPro(request, response);
+			System.out.println(cmd + " -> view:" + view);
+		}catch(Throwable e){
+			e.printStackTrace();
 		}
-		RequestDispatcher dispatcher = req.getRequestDispatcher(view);
-		dispatcher.forward(req, resp);
+		RequestDispatcher dispatcher = 
+				request.getRequestDispatcher(view);
+		dispatcher.forward(request, response);
 	}
 }
